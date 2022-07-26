@@ -73,7 +73,7 @@ const dataflow = {
         };
         if (arguments.length == 1
                 && typeof arguments[0] === 'object' && !Array.isArray(arguments[0])) {
-            // Accept registration in the form of `dataflow.register({fnName: () => val})
+            // Accept registration in the form of `dataflow.register({ a: (b, c) => b + c })`
             for (const [fnName, fn] of Object.entries(arguments[0])) {
                 register(fn, fnName);
             }
