@@ -331,6 +331,8 @@ Both of the above mechanisms can be combined, so that state changes to an `input
         from-dataflow="acceptBoxChecked_out:checked">
 ```
 
+(This is not normally how you would make a checkbox uncheckable, but it illustrates the point.)
+
 ```javascript
 // Uncheck the accept box if it is checked when uncheckable is true
 function autoUncheckAcceptBox(acceptBoxChecked_in, uncheckable) {
