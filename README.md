@@ -187,7 +187,7 @@ If upstream inputs are not set, they will be returned as `undefined`. Therefore,
 
 ```javascript
 function sum(x, y) {
-    return x !== undefined && && y !== undefined ? x + y : undefined;
+    return x !== undefined && y !== undefined ? x + y : undefined;
 }
 ```
 
