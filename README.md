@@ -309,6 +309,37 @@ If you want to write to an attribute of the element other than `innerHTML`, you 
 <div from-dataflow="vizValue_out:visibility"></div>
 ```
 
+Then you can push to these values in the normal way:
+
+```javascript
+dataflow.set({ textValue_out: "1.0" });
+
+dataflow.set({ boolValue_out: false });
+
+dataflow.set({ classValue_out: "error" });
+
+dataflow.set({ vizValue_out: "hidden" });
+```
+
+#### Dataflow both to and from the DOM:
+
+Both of the above mechanisms can be combined, so that state changes to an `input` element are propagated into an input in the dataflow graph, and any changes to an output of the dataflow graph trigger the state of the element to be updated.
+
+```html
+<input type="checkbox" id="acceptBox" checked="false"
+        to-dataflow-on-input="acceptBoxChecked_in"
+        from-dataflow="acceptBoxChecked_out:checked">
+```
+
+```javascript
+// Uncheck the accept box if it is checked when uncheckable is true
+function autoUncheckAcceptBox(acceptBoxChecked_in, uncheckable) {
+    if (acceptBoxChecked_in && uncheckable) {
+        dataflow.set({ acceptBoxChecked_out: false });
+    }
+}
+```
+
 ## Author
 
 Luke Hutchison ([@LH](https://twitter.com/lh) on Twitter)
