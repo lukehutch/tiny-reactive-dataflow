@@ -98,7 +98,7 @@ The tiny-reactive-dataflow library implements some powerful features in a very s
 
 ### Overview
 
-Create all dataflow nodes as (optionally `async`) functions, or as lambdas, and register them:
+Create all dataflow nodes as (optionally `async`) functions, or as "named lambdas", and register them:
 
 ```javascript
 // Function syntax:
@@ -113,7 +113,14 @@ function sub(x, y) {
 
 dataflow.register(add, sub);
 
-// Lambda syntax:
+// Functions can also be listed using an object declaration (`{...}`):
+
+dataflow.register({
+    function add(x, y) { return x + y; },
+    function sub(x, y) { return x - y; }
+});
+
+// Named lambda syntax:
 
 dataflow.register({
     add: (x, y) => x + y,
