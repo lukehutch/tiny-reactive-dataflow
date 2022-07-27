@@ -73,7 +73,7 @@ const dataflow = {
         };
         if (arguments.length == 1
                 && typeof arguments[0] === 'object' && !Array.isArray(arguments[0])) {
-            // Accept registration in the form of `dataflow.register({ a: (b, c) => b + c })`
+            // Accept registration in the form of `dataflow.register({fnName: () => val})
             for (const [fnName, fn] of Object.entries(arguments[0])) {
                 register(fn, fnName);
             }
@@ -255,7 +255,8 @@ const dataflow = {
     },
     
     connectToDOM: () => {
-        const validName = /^[A-Z_$][0-9A-Z_$]*$/i;
+        const validJSIdent = /^[A-Z_$][0-9A-Z_$]*$/i;
+        const validHTMLAttrName = /^[A-Z_-][0-9A-Z_-]*$/i;
                 
         // dataflow to DOM:
         // Register dataflow functions to push values back out to the DOM when there are changes.
@@ -264,20 +265,26 @@ const dataflow = {
         [...document.querySelectorAll("[from-dataflow]")].forEach(elt => {
             const dataflowAttrVal = elt.getAttribute("from-dataflow");
             const parts = dataflowAttrVal.split(":");
-            const dataflowOutputNodeName = parts[0];
-            if (!dataflowOutputNodeName || !validName.test(dataflowOutputNodeName)) {
+            const nodeName = parts[0];
+            if (!nodeName || !validJSIdent.test(nodeName)) {
                 throw new Error("from-dataflow attribute does not specify a valid dataflow node name: "
                         + elt.outerHTML);
             }
-            // Set innerHTML if no attribute is specified
-            const targetAttrName = parts.length > 1 ? parts[1] : "innerHTML";
-            // elt will be captured from this context when eval is called below
-            const setter = "elt." + targetAttrName + " = "
-                    + dataflowOutputNodeName + " === undefined ? '' : " + dataflowOutputNodeName + ";";
+            const targetAttrName = parts.length > 1 ? parts[1] : undefined;
+            if (targetAttrName !== undefined && !validHTMLAttrName.test(targetAttrName)) {
+                throw new Error("from-dataflow attribute name is not valid: " + elt.outerHTML);
+            }
+            // Replace `undefined` with ''
+            const nodeVal = nodeName + " === undefined ? '' : " + nodeName;
+            // `elt` will be captured from this context when eval is called below
+            const setter = targetAttrName === undefined
+                    // Set innerHTML if no attribute is specified. `setAttribute` doesn't work for `innerHTML`.
+                    ? "elt.innerHTML = " + nodeVal
+                    : "elt.setAttribute('" + targetAttrName + "', " + nodeVal + ")";
             // Create unique function name
             const functionName = "setDOM_" + idIdx++;
             // eval is the only way to create functions with both dynamic function names and dynamic parameter names
-            eval("async function " + functionName + "(" + dataflowOutputNodeName + ") { " + setter + "; }");
+            eval("async function " + functionName + "(" + nodeName + ") { " + setter + "; }");
             const fn = eval(functionName);
             functionsToRegister.push(fn);
         });
@@ -297,7 +304,7 @@ const dataflow = {
                             + elt.outerHTML);
                 }
                 const dataflowAttrVal = elt.getAttribute("to-dataflow-on-" + eventName);
-                if (!validName.test(dataflowAttrVal)) {
+                if (!validJSIdent.test(dataflowAttrVal)) {
                     throw new Error("to-dataflow-on-" + eventName
                             + " attribute does not specify a valid dataflow node name: " + elt.outerHTML);
                 }
