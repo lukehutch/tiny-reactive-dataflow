@@ -291,40 +291,42 @@ You can instead specify the attribute `to-dataflow-on-input` to respond to `inpu
 You can feed changes into the dataflow graph from HTML form inputs as follows:
 
 ```html
-<span from-dataflow="someValue_out"></span>
+<span from-dataflow="validation_out"></span>
 ```
 
-Here `someValue_out` is the name of the node in the dataflow graph whose value should be written into the `<span>`. `someValue_out` must be a valid Javascript symbol name. (The `_out` suffix is just a convention to make the purpose of this dataflow node clear.)
+Here `validation_out` is the name of the node in the dataflow graph whose value should be written into the `<span>`. The node name must be a valid Javascript symbol name. (The `_out` suffix is just a convention to make the purpose of this dataflow node clear.)
 
 To write changes to the DOM, simply push out a change using `set`:
 
 ```javascript
-dataflow.set({ someValue_out: "<b>Your input was invalid</b>" });
+dataflow.set({ validation_out: "<b>Your input was invalid</b>" });
 ```
 
-By default, the value of `someValue_out` will be written to the `innerHTML` property of the element, unescaped. **Warning**, you must escape or sanitize your dataflow output value to prevent injection attacks if you use this mechanism.
+By default, the value of `validation_out` will be written to the `innerHTML` property of the element, unescaped. **Warning**, you must escape or sanitize your dataflow output value to prevent injection attacks if you use this mechanism.
 
 If you want to write to an attribute of the element other than `innerHTML`, you can specify the attribute name to write to using a colon-delineated suffix after the dataflow node name.
 
 ```html
-<input type="text" from-dataflow="textValue_out:value">
+<input type="text" from-dataflow="classValue_out:class:className">
 
-<input type="checkbox" checked="true" from-dataflow="boolValue_out:checked">
+<input type="checkbox" checked="true" from-dataflow="boolValue_out:attr:checked">
 
-<span class="warning" from-dataflow="classValue_out:class"></span>
-
-<div from-dataflow="vizValue_out:visibility"></div>
+<span class="warning" from-dataflow="vizValue_out:style:visibility"></span>
 ```
 
 Then you can push to these values in the normal way:
 
 ```javascript
-dataflow.set({ textValue_out: "1.0" });
+// Switches on (toggles if necessary) the class `className` in the `text` input.
+// (for `:class:`, the value must be boolean)
+dataflow.set({ classValue_out: true });
 
+// Unchecks the checkbox by setting `checked="false"` on the `checkbox` input element
+// (for `:attr:`, the value can be any valid value for the HTML attribute, here `checked`)
 dataflow.set({ boolValue_out: false });
 
-dataflow.set({ classValue_out: "error" });
-
+// Sets `visibility: hidden` in the CSS properties of the span
+// (for `:style:`, the value can be any valid value for the named CSS property, here `visibility`)
 dataflow.set({ vizValue_out: "hidden" });
 ```
 

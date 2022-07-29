@@ -8,16 +8,20 @@
 
 let DEBUG_DATAFLOW = false;
 
-var STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
-var ARGUMENT_NAMES = /([^\s,]+)/g;
+// Extract function parameter names
+const STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
+const ARGUMENT_NAMES = /([^\s,]+)/g;
 function getParamNames(func) {
-  var fnStr = func.toString().replace(STRIP_COMMENTS, '');
-  var result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
-  if(result === null)
-     result = [];
-  return result;
+    const fnStr = func.toString().replace(STRIP_COMMENTS, '');
+    const result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
+    return result === null ? [] : result;
 }
 
+// Convert hyphen separated attribute names to camelCase
+// From https://stackoverflow.com/a/6661012/3950982
+var toCamelCase = (str) => str.replace(/-([a-z])/g, function (g) { return g[1].toUpperCase(); });
+
+// Queue datastructure
 function newQueue() {
     const queue = {
         headIdx: 0,
@@ -263,30 +267,71 @@ const dataflow = {
         const functionsToRegister = [];
         let idIdx = 0;
         [...document.querySelectorAll("[from-dataflow]")].forEach(elt => {
-            const dataflowAttrVal = elt.getAttribute("from-dataflow");
-            const parts = dataflowAttrVal.split(":");
-            const nodeName = parts[0];
-            if (!nodeName || !validJSIdent.test(nodeName)) {
-                throw new Error("from-dataflow attribute does not specify a valid dataflow node name: "
-                        + elt.outerHTML);
+            // Allow multiple comma-separated directives
+            const dataflowAttrValParts = elt.getAttribute("from-dataflow").split(",");
+            for (const dataflowAttrVal of dataflowAttrValParts) {
+                const getNodeName = (part) => {
+                    if (!part || !validJSIdent.test(part)) {
+                        throw new Error("from-dataflow attribute does not specify a valid dataflow node name: "
+                                + elt.outerHTML);
+                    }
+                    return part;
+                }
+                const definedOrBlank = (val) => val + " === undefined ? '' : " + val;
+                let setter;
+                let nodeName;
+                if (dataflowAttrVal.includes(":class:")) {
+                    // CSS class name is specified after ".", and dataflow value is boolean
+                    const parts = dataflowAttrVal.split(":class:");
+                    nodeName = getNodeName(parts[0]);
+                    const className = parts[1];
+                    setter = "if (" + nodeName + " !== undefined && " 
+                            + nodeName + " !== elt.classList.contains('" + className + "')) " +
+                        "elt.classList.toggle('" + className + "');"
+                        
+                } else if (dataflowAttrVal.includes(":style:")) {
+                    // CSS style name is specified after "#"
+                    const parts = dataflowAttrVal.split(":style:");
+                    nodeName = getNodeName(parts[0]);
+                    const styleName = parts[1];
+                    setter = "elt.style." + toCamelCase(styleName) + " = " + definedOrBlank(nodeName) + ";";
+                    
+                } else if (dataflowAttrVal.includes(":attr:")) {
+                    // HTML attribute name is specified after ":"
+                    const parts = dataflowAttrVal.split(":attr:");
+                    nodeName = getNodeName(parts[0]);
+                    const targetAttrName = parts[1];
+                    // Use property setter if it is available, otherwise use setAttribute
+                    setter =
+                        (nodeName === "allowBuying_out" ? "console.log('CURR: ', elt.checked);" : "") + // TODO
+                        "if (elt." + targetAttrName + " !== undefined) "
+                            + "elt." + targetAttrName + " = " + definedOrBlank(nodeName)
+                        + "; else "
+                            + "elt.setAttribute('" + targetAttrName + "', " + definedOrBlank(nodeName) + ");"
+                            + (nodeName === "allowBuying_out" ? "console.log('NEW: ', elt.checked);" : ""); // TODO
+                    
+                } else {
+                    // Default to setting innerHTML
+                    nodeName = dataflowAttrVal;
+                    setter = "elt.innerHTML = " + definedOrBlank(nodeName);
+                }
+                // Create unique function name
+                const functionName = "setDOM_" + idIdx++;
+                // eval is the only way to create functions with both dynamic function names and
+                // dynamic parameter names. `elt` in the setter string will be captured from this
+                // context when `eval` is called.
+                const fnDef = "function " + functionName + "(" + nodeName + ") { " + setter + " }";
+                try {
+                    // Define the function:
+                    eval(fnDef);
+                    // Get a reference to the function:
+                    const fn = eval(functionName);
+                    // Register the function
+                    functionsToRegister.push(fn);
+                } catch (e) {
+                    console.log("Could not eval:", fnDef, "; cause: ", e);
+                }
             }
-            const targetAttrName = parts.length > 1 ? parts[1] : undefined;
-            if (targetAttrName !== undefined && !validHTMLAttrName.test(targetAttrName)) {
-                throw new Error("from-dataflow attribute name is not valid: " + elt.outerHTML);
-            }
-            // Replace `undefined` with ''
-            const nodeVal = nodeName + " === undefined ? '' : " + nodeName;
-            // `elt` will be captured from this context when eval is called below
-            const setter = targetAttrName === undefined
-                    // Set innerHTML if no attribute is specified. `setAttribute` doesn't work for `innerHTML`.
-                    ? "elt.innerHTML = " + nodeVal
-                    : "elt.setAttribute('" + targetAttrName + "', " + nodeVal + ")";
-            // Create unique function name
-            const functionName = "setDOM_" + idIdx++;
-            // eval is the only way to create functions with both dynamic function names and dynamic parameter names
-            eval("async function " + functionName + "(" + nodeName + ") { " + setter + "; }");
-            const fn = eval(functionName);
-            functionsToRegister.push(fn);
         });
         // Register DOM update functions
         dataflow.register(...functionsToRegister);
@@ -297,23 +342,28 @@ const dataflow = {
         // id="dataflowNodeName" (where dataflowNodeName needs to be a valid JS identifier).
         const getInputValue = (elt) => elt.type === "checkbox" || elt.type === "radio" ? elt.checked : elt.value;
         const initialValues = {};
-        const registerListeners = (eventName) =>
-            [...document.querySelectorAll("[to-dataflow-on-" + eventName + "]")].forEach(elt => {
+        const registerListeners = (eventName) => {
+            const attrName = "to-dataflow-on-" + eventName;
+            [...document.querySelectorAll("[" + attrName + "]")].forEach(elt => {
                 if (elt.tagName.toLowerCase() !== "input") {
-                    throw new Error("Element with to-dataflow-on-change attribute is not an input element: "
+                    throw new Error("Element with " + attrName + " attribute is not an input element: "
                             + elt.outerHTML);
                 }
-                const dataflowAttrVal = elt.getAttribute("to-dataflow-on-" + eventName);
+                const dataflowAttrVal = elt.getAttribute(attrName);
                 if (!validJSIdent.test(dataflowAttrVal)) {
-                    throw new Error("to-dataflow-on-" + eventName
-                            + " attribute does not specify a valid dataflow node name: " + elt.outerHTML);
+                    throw new Error(
+                        attrName + " attribute does not specify a valid dataflow node name: " + elt.outerHTML);
                 }
                 elt.addEventListener(eventName, () => dataflow.set({ [dataflowAttrVal]: getInputValue(elt) }));
-                initialValues[elt.id] = getInputValue(elt);
-            });
+                initialValues[dataflowAttrVal] = getInputValue(elt);
+            })
+        };
         registerListeners("change");
         registerListeners("input");
         // Seed dataflow graph with initial values from DOM
+        if (DEBUG_DATAFLOW) {
+            console.log("Initial values:", initialValues);
+        }
         dataflow.set(initialValues);
     },
 };
