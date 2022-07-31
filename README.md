@@ -130,6 +130,8 @@ dataflow.register({
 
 Function names are used as node names. Function parameter names refer to the node names of upstream dependencies. If the named upstream dependency does not correspond to any function name (e.g. `x` and `y` in this example), then it is used as an input parameter that seeds changes into the dataflow DAG. You may call `register` as many times as you want to register additional functions.
 
+**Important:** You cannot allow your Javascript code to be minified, or function names and parameter names will be shortened, and will no longer correspond with each other, so your dataflow graph will be broken.
+
 Note that since parameter names in a dataflow function exactly match the names of upstream functions, you must declare all dependencies in the parameter list of each function you define. These parameter names mask the names of the functions of the same name that they refer to. If you forget to specify a dependency as a parameter, you will be operating on the function of that name instead:
 
 ```javascript
