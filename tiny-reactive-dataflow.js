@@ -93,7 +93,14 @@ const dataflow = {
         // Visit a node and its transitive closure
         const visitNode = (name, visited, visitedInPath, fnVisitor) => {
             if (visitedInPath.has(name)) {
-                throw new Error("Cycle detected, consisting of nodes: " + visitedInPath);
+                const visitedPath = [...visitedInPath];
+                const idx = visitedPath.indexOf(name);
+                const cyclePath = [];
+                for (let i = idx; i < visitedPath.length; i++) {
+                    cyclePath.push(visitedPath[i]);
+                }
+                cyclePath.push(name);
+                throw new Error("Cycle detected, consisting of nodes: " + cyclePath.join(" -> "));
             }
             visitedInPath.add(name);
             if (!visited.has(name)) {
