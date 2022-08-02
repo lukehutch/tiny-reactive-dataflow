@@ -265,6 +265,11 @@ const dataflow = {
         }
     },
     
+    get: (name) => {
+        dataflow.set({});  // Wait for dataflow to end
+        return dataflow.value[name];
+    },
+    
     connectToDOM: () => {
         const validJSIdent = /^[A-Z_$][0-9A-Z_$]*$/i;
         const validHTMLAttrName = /^[A-Z_-][0-9A-Z_-]*$/i;

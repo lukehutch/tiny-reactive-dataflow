@@ -172,6 +172,8 @@ await dataflow.set({});
 console.log("Result: " + dataflow.value.result);
 ```
 
+Alternatively you can call the convenience function `get(nodeName)`, which accomplishes the same thing.
+
 An error will be thrown at runtime, during a `set` call, if a directed cycle of dependencies is detected between dataflow nodes.
 
 ### Error handling
