@@ -265,8 +265,8 @@ const dataflow = {
         }
     },
     
-    get: (name) => {
-        dataflow.set({});  // Wait for dataflow to end
+    get: async (name) => {
+        await dataflow.set({});  // Wait for dataflow to end
         return dataflow.value[name];
     },
     
