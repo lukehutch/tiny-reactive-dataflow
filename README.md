@@ -169,10 +169,10 @@ You can also call `set` with an empty update to simply wait for dataflow change 
 
 ```javascript
 await dataflow.set({});
-console.log("Result: " + dataflow.value.result);
+console.log("Result: " + dataflow.value.nodeName);
 ```
 
-Alternatively you can call the convenience function `get(nodeName)`, which accomplishes the same thing.
+Alternatively you can call `await get(nodeName)`, which accomplishes the same thing.
 
 An error will be thrown at runtime, during a `set` call, if a directed cycle of dependencies is detected between dataflow nodes.
 
