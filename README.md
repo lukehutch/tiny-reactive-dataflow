@@ -112,23 +112,20 @@ function sub(x, y) {
 }
 
 dataflow.register(add, sub);
+```
 
-// Functions can also be listed using an object declaration (`{...}`):
+Function names are used as node names. Function parameter names refer to the node names of upstream dependencies. If the named upstream dependency does not correspond to any function name (e.g. `x` and `y` in this example), then it is used as an input parameter that seeds changes into the dataflow DAG. You may call `register` as many times as you want to register additional functions.
 
-dataflow.register({
-    function add(x, y) { return x + y; },
-    function sub(x, y) { return x - y; }
-});
+Functions can also be registered using named lambda syntax:
 
-// Named lambda syntax:
-
+```javascript
 dataflow.register({
     add: (x, y) => x + y,
     sub: (x, y) => x - y
 });
 ```
 
-Function names are used as node names. Function parameter names refer to the node names of upstream dependencies. If the named upstream dependency does not correspond to any function name (e.g. `x` and `y` in this example), then it is used as an input parameter that seeds changes into the dataflow DAG. You may call `register` as many times as you want to register additional functions.
+It is preferable to use this named lambda form, because it will be easier to find cases where you accidentally forgot to add a parameter name for a needed dependency if there aren't functions declared in the global scope with the same name as desired dependencies.
 
 **Important:** You cannot allow your Javascript code to be minified, or function names and parameter names will be shortened, and will no longer correspond with each other, so your dataflow graph will be broken.
 
