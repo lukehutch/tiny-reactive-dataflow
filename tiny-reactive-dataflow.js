@@ -185,6 +185,10 @@ const dataflow = {
                 // direct downstream dependencies
                 var dirtyNodeNames = new Set();
                 for (const [name, value] of Object.entries(updateBatch)) {
+                    // Make sure value is not a Promise (it needs to be a fully-resolved value)
+                     if (typeof value === "object" && typeof value.then === "function") {
+                        throw new Error("Value of '" + name + "' cannot be a Promise");
+                     }
                     setNodeValue(name, value, dirtyNodeNames);
                 }
 
@@ -315,13 +319,10 @@ const dataflow = {
                     const targetAttrName = parts[1];
                     // Use property setter if it is available, otherwise use setAttribute
                     setter =
-                        (nodeName === "allowBuying_out" ? "console.log('CURR: ', elt.checked);" : "") + // TODO
                         "if (elt." + targetAttrName + " !== undefined) "
                             + "elt." + targetAttrName + " = " + definedOrBlank(nodeName)
                         + "; else "
-                            + "elt.setAttribute('" + targetAttrName + "', " + definedOrBlank(nodeName) + ");"
-                            + (nodeName === "allowBuying_out" ? "console.log('NEW: ', elt.checked);" : ""); // TODO
-                    
+                            + "elt.setAttribute('" + targetAttrName + "', " + definedOrBlank(nodeName) + ");";
                 } else {
                     // Default to setting innerHTML
                     nodeName = dataflowAttrVal;
@@ -361,13 +362,13 @@ const dataflow = {
                     throw new Error("Element with " + attrName + " attribute is not an input element: "
                             + elt.outerHTML);
                 }
-                const dataflowAttrVal = elt.getAttribute(attrName);
-                if (!validJSIdent.test(dataflowAttrVal)) {
+                const nodeName = elt.getAttribute(attrName);
+                if (!validJSIdent.test(nodeName)) {
                     throw new Error(
                         attrName + " attribute does not specify a valid dataflow node name: " + elt.outerHTML);
                 }
-                elt.addEventListener(eventName, () => dataflow.set({ [dataflowAttrVal]: getInputValue(elt) }));
-                initialValues[dataflowAttrVal] = getInputValue(elt);
+                elt.addEventListener(eventName, () => dataflow.set({ [nodeName]: getInputValue(elt) }));
+                initialValues[nodeName] = getInputValue(elt);
             })
         };
         registerListeners("change");
