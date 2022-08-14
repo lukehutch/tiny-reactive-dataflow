@@ -5,8 +5,9 @@
 // License: MIT
 
 // Note: This library depends upon Lodash -- https://lodash.com/
+import { _ } from "lodash";
 
-let DEBUG_DATAFLOW = false;
+window.DEBUG_DATAFLOW = false;
 
 // Extract function parameter names
 const STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
@@ -40,7 +41,7 @@ function newQueue() {
     return queue;
 }
 
-const dataflow = {
+export const dataflow = {
     nameToFn: new Map(),               // name -> function
     nodeToUpstreamNodes: new Map(),    // name -> list of names
     nodeToDownstreamNodes: new Map(),  // name -> list of names
@@ -135,7 +136,7 @@ const dataflow = {
             const valueChanged = !_.isEqual(oldValue, value);
             dataflow.valueChanged[name] = valueChanged;
             if (valueChanged) {
-                if (DEBUG_DATAFLOW) {
+                if (window.DEBUG_DATAFLOW) {
                     console.log("Setting:", {[name]: value});
                 }
                 dataflow.value[name] = value;
@@ -208,14 +209,14 @@ const dataflow = {
                         const args = [];
                         const paramNames = dataflow.nodeToUpstreamNodes.get(name);
                         let someArgChanged = false;
-                        const paramNamesAndArgs = DEBUG_DATAFLOW ? {} : undefined;
+                        const paramNamesAndArgs = window.DEBUG_DATAFLOW ? {} : undefined;
                         for (const paramName of paramNames) {
                             if (dataflow.valueChanged[paramName]) {
                                 someArgChanged = true;
                             }
                             const arg = dataflow.value[paramName];
                             args.push(arg);
-                            if (DEBUG_DATAFLOW) {
+                            if (window.DEBUG_DATAFLOW) {
                                 paramNamesAndArgs[paramName] = arg;
                             }
                         }
@@ -224,11 +225,12 @@ const dataflow = {
                         if (someArgChanged) {
                             // Only call fn if at least one param value changed, to avoid repeating work
                             // (i.e. implement memoization)
-                            if (DEBUG_DATAFLOW) {
-                                console.log("Calling:", {[name]: paramNamesAndArgs});
+                            const promise = fn(...args);
+                            if (window.DEBUG_DATAFLOW) {
+                                console.log("Calling:", {[name]: paramNamesAndArgs}, promise);
                             }
                             // Call fn with these params, returning the resulting promise
-                            promises.push(fn(...args));
+                            promises.push(promise);
                         } else {
                             // Otherwise reuse cached val (we still need to propagate unchanged
                             // value down dataflow graph, so that fn.numDirtyDeps gets correctly
@@ -258,12 +260,12 @@ const dataflow = {
                         }
                     }
                 }
-                if (DEBUG_DATAFLOW && !dataflow.updateBatches.isEmpty()) {
+                if (window.DEBUG_DATAFLOW && !dataflow.updateBatches.isEmpty()) {
                     console.log("Starting next dynamic dataflow batch");
                 }
             }
             dataflow.inProgress = false;
-            if (DEBUG_DATAFLOW) {
+            if (window.DEBUG_DATAFLOW) {
                 console.log("Dataflow ended");
             }
         }
@@ -374,10 +376,13 @@ const dataflow = {
         registerListeners("change");
         registerListeners("input");
         // Seed dataflow graph with initial values from DOM
-        if (DEBUG_DATAFLOW) {
+        if (window.DEBUG_DATAFLOW) {
             console.log("Initial values:", initialValues);
         }
         dataflow.set(initialValues);
     },
 };
+
+// Export as global
+window.dataflow = dataflow;
 
