@@ -10,12 +10,29 @@ import { _ } from "lodash";
 window.DEBUG_DATAFLOW = false;
 
 // Extract function parameter names
-const STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
-const ARGUMENT_NAMES = /([^\s,]+)/g;
+const STRIP_COMMENTS = /((\/\/.*$)|(\/\*.*\*\/))/mg;
+const STRIP_KEYWORDS = /(\s*async\s*|\s*function\s*)+/;
+const ARGUMENT_NAMES = /\(([^)]+)\)\s*=>|([a-zA-Z_$]+)\s*=>|[a-zA-Z_$]+\(([^)]+)\)|\(([^)]+)\)/;
+const ARGUMENT_SPLIT = /[ ,\n\r\t]+/;
 function getParamNames(func) {
-    const fnStr = func.toString().replace(STRIP_COMMENTS, '');
-    const result = fnStr.slice(fnStr.indexOf('(')+1, fnStr.indexOf(')')).match(ARGUMENT_NAMES);
-    return result === null ? [] : result;
+    const fnStr = func.toString()
+        .replace(STRIP_COMMENTS, "")
+        .replace(STRIP_KEYWORDS, "")
+        .trim();
+    const matches = ARGUMENT_NAMES.exec(fnStr);
+    var match;
+    if (matches) {
+        for (var i = 1; i < matches.length; i++) {
+            if (matches[i]) {
+                match = matches[i];
+                break;
+            } 
+        }
+    }
+    if (match === undefined) {
+        return [];
+    }
+    return match.split(ARGUMENT_SPLIT).filter(part => part !== "");
 }
 
 // Convert hyphen separated attribute names to camelCase
@@ -335,12 +352,10 @@ export const dataflow = {
                 // eval is the only way to create functions with both dynamic function names and
                 // dynamic parameter names. `elt` in the setter string will be captured from this
                 // context when `eval` is called.
-                const fnDef = "function " + functionName + "(" + nodeName + ") { " + setter + " }";
+                const fnDef = "let __f = function " + functionName + "(" + nodeName + ") { " + setter + " }; __f";
                 try {
-                    // Define the function:
-                    eval(fnDef);
-                    // Get a reference to the function:
-                    const fn = eval(functionName);
+                    // Define the function, and get a reference to it
+                    const fn = eval(fnDef);
                     // Register the function
                     functionsToRegister.push(fn);
                 } catch (e) {
