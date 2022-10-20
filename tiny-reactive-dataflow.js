@@ -355,7 +355,7 @@ export const dataflow = {
                 const fnDef = "let __f = function " + functionName + "(" + nodeName + ") { " + setter + " }; __f";
                 try {
                     // Define the function, and get a reference to it
-                    const fn = eval(fnDef);
+                    const fn = window.eval(fnDef);
                     // Register the function
                     functionsToRegister.push(fn);
                 } catch (e) {
