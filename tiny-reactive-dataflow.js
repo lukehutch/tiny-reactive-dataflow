@@ -37,7 +37,7 @@ function getParamNames(func) {
 
 // Convert hyphen separated attribute names to camelCase
 // From https://stackoverflow.com/a/6661012/3950982
-var toCamelCase = (str) => str.replace(/-([a-z])/g, function (g) { return g[1].toUpperCase(); });
+var toCamelCase = (str) => str.replace(/-([a-z])/g, g => g[1].toUpperCase());
 
 // Queue datastructure
 function newQueue() {
@@ -67,42 +67,43 @@ export const dataflow = {
     valueChanged: {},                  // name -> boolean
     inProgress: false,
     errors: [],
+
+    registerFn: function(fnName, fn) {
+        if (!(fn instanceof Function)) {
+            throw new Error("Parameter is not a function: " + fn);
+        }
+        if (dataflow.nameToFn.has(fnName)) {
+            throw new Error("Function is already registered: " + fnName);
+        }
+        
+        // Index functions by name (these are the node names)
+        dataflow.nameToFn.set(fnName, fn);
+
+        // Extract param names from function (these are the upstream dep names)
+        const paramNames = getParamNames(fn);
+        
+        // Create DAG
+        dataflow.nodeToUpstreamNodes.set(fnName, paramNames);
+        for (const usName of paramNames) {
+            var dsFns = dataflow.nodeToDownstreamNodes.get(usName);
+            if (!dsFns) {
+                dataflow.nodeToDownstreamNodes.set(usName, dsFns = []);
+            }
+            dsFns.push(fnName);
+        }
+    },
     
     register: function(...fns) {
-        const register = (fn, fnName) => {
-            if (!(fn instanceof Function)) {
-                throw new Error("Parameter is not a function: " + fn);
-            }
-            if (dataflow.nameToFn.has(fnName)) {
-                throw new Error("Function is already registered: " + fnName);
-            }
-            
-            // Index functions by name (these are the node names)
-            dataflow.nameToFn.set(fnName, fn);
-
-            // Extract param names from function (these are the upstream dep names)
-            const paramNames = getParamNames(fn);
-            
-            // Create DAG
-            dataflow.nodeToUpstreamNodes.set(fnName, paramNames);
-            for (const usName of paramNames) {
-                var dsFns = dataflow.nodeToDownstreamNodes.get(usName);
-                if (!dsFns) {
-                    dataflow.nodeToDownstreamNodes.set(usName, dsFns = []);
-                }
-                dsFns.push(fnName);
-            }
-        };
         if (arguments.length == 1
                 && typeof arguments[0] === 'object' && !Array.isArray(arguments[0])) {
             // Accept registration in the form of `dataflow.register({fnName: () => val})
             for (const [fnName, fn] of Object.entries(arguments[0])) {
-                register(fn, fnName);
+                dataflow.registerFn(fnName, fn);
             }
         } else {
             // Accept registration as a list of named functions: `dataflow.register(a, b, c)`
             for (const fn of fns) {
-                register(fn, fn.name);
+                dataflow.registerFn(fn.name, fn);
             }
         }
     },
@@ -299,7 +300,6 @@ export const dataflow = {
                 
         // dataflow to DOM:
         // Register dataflow functions to push values back out to the DOM when there are changes.
-        const functionsToRegister = [];
         let idIdx = 0;
         [...document.querySelectorAll("[from-dataflow]")].forEach(elt => {
             // Allow multiple comma-separated directives
@@ -352,19 +352,17 @@ export const dataflow = {
                 // eval is the only way to create functions with both dynamic function names and
                 // dynamic parameter names. `elt` in the setter string will be captured from this
                 // context when `eval` is called.
-                const fnDef = "let __f = function " + functionName + "(" + nodeName + ") { " + setter + " }; __f";
+                const fnDef = "var __f = function " + functionName + "(" + nodeName + ") { " + setter + " }; __f";
                 try {
                     // Define the function, and get a reference to it
-                    const fn = window.eval(fnDef);
+                    const fn = eval(fnDef);
                     // Register the function
-                    functionsToRegister.push(fn);
+                    dataflow.registerFn(functionName, fn);
                 } catch (e) {
                     console.log("Could not eval:", fnDef, "; cause: ", e);
                 }
             }
         });
-        // Register DOM update functions
-        dataflow.register(...functionsToRegister);
         
         // DOM to dataflow:
         // Add change listeners to input elements in DOM that will push changes into the dataflow graph.
